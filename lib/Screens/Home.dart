@@ -1,495 +1,331 @@
 // ignore_for_file: file_names, unnecessary_null_comparison
+import 'dart:io';
 
-import 'package:clipboard/clipboard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:get/get.dart';
-import 'package:password_manager/src/controller.dart';
+import 'package:password_manager/Screens/fileShare_manager/file_screens.dart';
+import 'package:password_manager/Screens/links_manager/links_screen.dart';
+import 'package:password_manager/Screens/password_manager/password_screen.dart';
+import 'package:password_manager/src/Controllers/settings_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class HomeScreen extends StatelessWidget {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  Future<bool> exitApp() {
+    exit(0);
+  }
+
+  double xOffset = 0;
+  double yOffset = 0;
+  double scaleFacor = 1;
+  late Animation<Offset> _position;
+  late AnimationController _controller;
+
+  openHiddenDrawer() {
+    setState(() {
+      xOffset = 250;
+      yOffset = 120;
+      scaleFacor = 0.7;
+    });
+  }
+
+  closeHiddenDrawer() {
+    setState(() {
+      xOffset = 0;
+      yOffset = 0;
+      scaleFacor = 1;
+    });
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 700),
+    );
+    _position = Tween<Offset>(begin: Offset(0.0, 0.0), end: Offset(0.0, 0.0))
+        .animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    _controller.dispose();
+  }
+
+  setPosition(startx, starty, endx, endy) {
+    setState(() {
+      _position =
+          Tween<Offset>(begin: Offset(startx, starty), end: Offset(endx, endy))
+              .animate(_controller);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    AppController appController = Get.find<AppController>();
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            Obx(() {
-              return SliverAppBar(
-                toolbarHeight: 60,
-                title: appController.isSearch.isTrue
-                    ? TextField(
-                        onChanged: (value) {
-                          appController.filterByIndex(value);
-                        },
-                        decoration: const InputDecoration(
-                          label: Text('type username..'),
-                          prefixIcon: Icon(Icons.search),
+    SettingsController settingsController = Get.find<SettingsController>();
+    return WillPopScope(
+      child: PageView(
+        children: [
+          Stack(
+            children: [
+              Obx(() {
+                return Scaffold(
+                  backgroundColor: settingsController.theme.value == 'light'
+                      ? Color(0xff416d6d)
+                      : Colors.black54,
+                  body: SlideTransition(
+                    position: _position,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 20,
                         ),
-                      )
-                    : Text('Password Manager'),
-                actions: [
-                  appController.isSearch.isFalse
-                      ? IconButton(
-                          onPressed: () {
-                            appController.enableSearchBar();
-                          },
-                          icon: const Icon(Icons.search,color: Colors.blueGrey,))
-                      : Container(),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    child: appController.isSearch.isTrue
-                        ? IconButton(
-                            onPressed: () {
-                              appController.fetchPasswords();
-                              appController.disableSearchBar();
-                            },
-                            icon: const Icon(Icons.remove,color: Colors.blueGrey,),
-                          )
-                        : appController.theme == 'light'
-                            ? IconButton(
+                        Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'App Information',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 25),
+                              ),
+                              IconButton(
                                 onPressed: () {
-                                  appController.changeToDark();
+                                  setPosition(1.0, 0.0, 0.0, 0.0);
+                                  _controller.reset();
+                                  _controller.forward();
+                                  closeHiddenDrawer();
                                 },
-                                icon: const Icon(Icons.nightlight_round,
-                                    color: Colors.pink),
-                              )
-                            : IconButton(
-                                onPressed: () {
-                                  appController.changeToLight();
-                                },
-                                icon: const Icon(
-                                  Icons.wb_sunny,
-                                  color: Colors.yellowAccent,
+                                icon: Icon(
+                                  Icons.remove,
+                                  color: Colors.white,
                                 ),
                               ),
-                  )
-                ],
-                expandedHeight: 50,
-                //stretch: true,
-                onStretchTrigger: (() {
-                  print('Hy');
-                })(),
-                flexibleSpace: FlexibleSpaceBar(
-                  // ignore: unrelated_type_equality_checks
-                  title: Obx(() {
-                    return Text(
-                      'Keep your passwords with you.',
-                      style: TextStyle(
-                          fontSize: 10,
-                          // ignore: unrelated_type_equality_checks
-                          color: appController.theme == 'light'
-                              ? Colors.blueGrey
-                              : Colors.white70),
-                    );
-                  }),
-                  titlePadding: const EdgeInsets.only(left: 20),
-                ),
-              );
-            }),
-            Obx(
-              () {
-                return SliverPadding(
-                    padding: const EdgeInsets.all(10),
-                    sliver: appController.passwords.value.length > 0
-                        ? SliverFixedExtentList(
-                            itemExtent: 85.0,
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => Card(
-                                elevation: 3,
-                                color: appController.theme == 'light' ? Colors.white70 : Colors.blueGrey,
-                                child: ListTile(
-                                    //leading: const Icon(Icons.person),
-                                    onTap: () {
-                                      FlutterClipboard.copy(appController
-                                              .passwords.value[index].password)
-                                          .then((value) {
-                                        ScaffoldMessenger.maybeOf(context)!
-                                            .showSnackBar(
-                                          appController
-                                              .customSnachBar('Password copied.'),
-                                        );
-                                        appController.increaseCount(appController
-                                            .passwords.value[index].id);
-                                      });
-                                    },
-                                    title: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                            appController
-                                                .passwords.value[index].title,
-                                            overflow: TextOverflow.ellipsis),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            IconButton(
-                                              onPressed: () {
-                                                _usernameController.text =
-                                                    appController.passwords
-                                                        .value[index].username;
-                                                _passwordController.text =
-                                                    appController.passwords
-                                                        .value[index].password;
-                                                _titleController.text =
-                                                    appController.passwords
-                                                        .value[index].title;
-
-                                                appController.messageDialogue(
-                                                    Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                        children: [
-                                                          const Text(
-                                                              'Update Account'),
-                                                          IconButton(
-                                                            onPressed: () {
-                                                              appController
-                                                                  .isAdded
-                                                                  .value = false;
-                                                              Navigator.of(
-                                                                      context)
-                                                                  .pop();
-                                                            },
-                                                            icon: const Icon(
-                                                              Icons.cancel,
-                                                              color: Colors.pink,
-                                                            ),
-                                                          )
-                                                        ]),
-                                                    SizedBox(
-                                                      height: 200,
-                                                      child: Column(
-                                                        // ignore: prefer_const_literals_to_create_immutables
-                                                        children: [
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                        .only(
-                                                                    bottom: 10),
-                                                            child: TextField(
-                                                              controller:
-                                                                  _usernameController,
-                                                              decoration:
-                                                                  const InputDecoration(
-                                                                border:
-                                                                    OutlineInputBorder(
-                                                                  borderSide: BorderSide(
-                                                                      color: Colors
-                                                                          .green,
-                                                                      width: 5.0),
-                                                                ),
-                                                                label: Text(
-                                                                    'username/email/number'),
-                                                                prefixIcon: Icon(
-                                                                    Icons.person),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                        .only(
-                                                                    bottom: 10),
-                                                            child: TextField(
-                                                              controller:
-                                                                  _passwordController,
-                                                              decoration:
-                                                                  const InputDecoration(
-                                                                border:
-                                                                    OutlineInputBorder(
-                                                                  borderSide: BorderSide(
-                                                                      color: Colors
-                                                                          .green,
-                                                                      width: 5.0),
-                                                                ),
-                                                                label: Text(
-                                                                    'password'),
-                                                                prefixIcon: Icon(
-                                                                    Icons.lock),
-                                                              ),
-                                                              obscureText: true,
-                                                            ),
-                                                          ),
-                                                          TextField(
-                                                            controller:
-                                                                _titleController,
-                                                            decoration:
-                                                                const InputDecoration(
-                                                                    border:
-                                                                        OutlineInputBorder(
-                                                                      borderSide: BorderSide(
-                                                                          color: Colors
-                                                                              .green,
-                                                                          width:
-                                                                              5.0),
-                                                                    ),
-                                                                    label: Text(
-                                                                        'title'),
-                                                                    prefixIcon:
-                                                                        Icon(Icons
-                                                                            .label)),
-                                                          )
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    [
-                                                      Obx(() {
-                                                        return appController
-                                                                .isLoading.value
-                                                            // ignore: deprecated_member_use
-                                                            ? FlatButton(
-                                                                onPressed: () {},
-                                                                child: const CircularProgressIndicator(
-                                                                    color: Colors
-                                                                        .white),
-                                                              )
-                                                            // ignore: deprecated_member_use
-                                                            : appController
-                                                                    .isAdded.value
-                                                                ? Chip(
-                                                                    avatar:
-                                                                        const Icon(
-                                                                      Icons
-                                                                          .done_all,
-                                                                      color: Colors
-                                                                          .green,
-                                                                    ),
-                                                                    label:
-                                                                        const Text(
-                                                                            'Exit'),
-                                                                    onDeleted:
-                                                                        () {
-                                                                      appController
-                                                                          .isAdded
-                                                                          .value = false;
-                                                                      Navigator.of(
-                                                                              context)
-                                                                          .pop();
-                                                                    },
-                                                                  )
-                                                                : RaisedButton(
-                                                                    onPressed:
-                                                                        () {
-                                                                      if (_usernameController.text.isNotEmpty &&
-                                                                          _passwordController
-                                                                              .text
-                                                                              .isNotEmpty &&
-                                                                          _titleController
-                                                                              .text
-                                                                              .isNotEmpty) {
-                                                                        appController.editDataToStorage(
-                                                                            appController
-                                                                                .passwords
-                                                                                .value[
-                                                                                    index]
-                                                                                .id,
-                                                                            _titleController
-                                                                                .text,
-                                                                            _usernameController
-                                                                                .text,
-                                                                            _passwordController
-                                                                                .text);
-                                                                      } else {
-                                                                        ScaffoldMessenger.of(
-                                                                                context)
-                                                                            .showSnackBar(
-                                                                                appController.customSnachBar('Please Enter all values.'));
-                                                                      }
-                                                                    },
-                                                                    child: const Text(
-                                                                        'UPDATE'),
-                                                                  );
-                                                      })
-                                                    ],
-                                                    4,
-                                                    context);
-                                              },
-                                              icon: const Icon(Icons.edit),
-                                            ),
-                                            IconButton(
-                                              onPressed: () {
-                                                appController.messageDialogue(
-                                                    const Text(
-                                                        'Do want to continue.'),
-                                                    const Text(
-                                                        'This password will deleted permanentaly.'),
-                                                    [
-                                                      RaisedButton(
-                                                        onPressed: () {
-                                                          Navigator.of(context)
-                                                              .pop();
-                                                        },
-                                                        child: Text('NO'),
-                                                      ),
-                                                      RaisedButton(
-                                                        onPressed: () {
-                                                          appController
-                                                              .deletePassword(
-                                                                  appController
-                                                                      .passwords
-                                                                      .value[
-                                                                          index]
-                                                                      .id);
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            appController
-                                                                .customSnachBar(
-                                                                    'Account has been Deleted.'),
-                                                          );
-                                                          Navigator.of(context)
-                                                              .pop();
-                                                        },
-                                                        child: const Text('YES'),
-                                                      )
-                                                    ],
-                                                    3,
-                                                    context);
-                                              },
-                                              icon: const Icon(Icons.delete),
-                                            )
-                                          ],
-                                        )
-                                      ],
-                                    ),
-                                    subtitle: Text(
-                                      appController
-                                          .passwords.value[index].username,
-                                      overflow: TextOverflow.ellipsis,
-                                    )),
-                              ),
-                              childCount: appController.passwords.value.length,
+                            ],
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            await launch('https://flutter.dev/');
+                          },
+                          leading: const Icon(
+                            Icons.engineering,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'Google Flutter',
+                            style: TextStyle(
+                              color: Colors.white,
                             ),
-                          )
-                        : const SliverToBoxAdapter(
-                            child: Center(
-                            child: Text('No Passwords Found.'),
-                          )));
-              },
-            )
-          ],
-        ),
-      ),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterFloat,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          appController.messageDialogue(
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Create Password'),
-                IconButton(
-                  onPressed: () {
-                    appController.isAdded.value = false;
-                    Navigator.of(context).pop();
-                  },
-                  icon: const Icon(
-                    Icons.cancel,
-                    color: Colors.pink,
+                          ),
+                          subtitle: const Text(
+                            'Developed in google flutter',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () {},
+                          leading: Icon(
+                            Icons.rate_review,
+                            color: Colors.white,
+                          ),
+                          title: Text(
+                            'Feedback',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Drop your feedback',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            await launch(
+                                'https://github.com/ByteCode-Club/password_manager_flutter');
+                          },
+                          leading: const Icon(
+                            Icons.folder,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'Source code',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Get full source code',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () {},
+                          leading: const Icon(
+                            Icons.android,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'More Apps',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Download our apps',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'Developer',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 25),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            launch('https://github.com/frenzycoder7');
+                          },
+                          leading: const Icon(
+                            Icons.code,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'frenzycoder7',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'GitHub',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            await launch(
+                                'https://www.linkedin.com/in/gaurav-singh-952841195');
+                          },
+                          leading: const Icon(
+                            Icons.link,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'Gaurav Singh',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'LinkedIn',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            final url =
+                                'mailto:gs9178449@gmail.com?subject=${Uri.encodeFull('For Work')}&body=${Uri.encodeFull('Hello Gaurav')}';
+                            await launch(url);
+                          },
+                          leading: const Icon(
+                            Icons.email,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'gs9178449@gmail.com',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Gmail',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        ListTile(
+                          onTap: () async {
+                            await launch('tel:+91 9262715527');
+                          },
+                          leading: const Icon(
+                            Icons.phone,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            '+91 9262715527',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Number',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )
-              ]),
-              SizedBox(
-                height: 200,
-                child: Column(
-                  // ignore: prefer_const_literals_to_create_immutables
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.green, width: 5.0),
-                          ),
-                          label: Text('username/email/number'),
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.green, width: 5.0),
-                          ),
-                          label: Text('password'),
-                          prefixIcon: Icon(Icons.lock),
-                        ),
-                        obscureText: true,
-                      ),
-                    ),
-                    TextField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                          border: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.green, width: 5.0),
-                          ),
-                          label: Text('title'),
-                          prefixIcon: Icon(Icons.label)),
-                    )
-                  ],
+                );
+              }),
+              AnimatedContainer(
+                //decoration: decoration,
+                //clipBehavior: ,
+                transform: Matrix4.translationValues(xOffset, yOffset, 0)
+                  ..scale(scaleFacor),
+                duration: Duration(microseconds: 250),
+                curve: Curves.easeIn,
+                child: SlideTransition(
+                  position: _position,
+                  child: PasswordScreen(
+                    openDrawer: openHiddenDrawer,
+                    drawerAnimation: _controller,
+                    setPosition: setPosition,
+                  ),
                 ),
               ),
-              [
-                Obx(() {
-                  return appController.isLoading.value
-                      // ignore: deprecated_member_use
-                      ? FlatButton(
-                          onPressed: () {},
-                          child: const CircularProgressIndicator(
-                              color: Colors.white),
-                        )
-                      // ignore: deprecated_member_use
-                      : appController.isAdded.value
-                          ? Chip(
-                              avatar: const Icon(
-                                Icons.done_all,
-                                color: Colors.green,
-                              ),
-                              label: const Text('ADD ANOTHER'),
-                              onDeleted: () {
-                                _usernameController.text = '';
-                                _passwordController.text = '';
-                                _titleController.text = '';
-                                appController.isAdded.value = false;
-                              },
-                            )
-                          : RaisedButton(
-                              onPressed: () {
-                                if (_usernameController.text.isNotEmpty &&
-                                    _passwordController.text.isNotEmpty &&
-                                    _titleController.text.isNotEmpty) {
-                                  appController.addDataToStorage(
-                                      _titleController.text,
-                                      _usernameController.text,
-                                      _passwordController.text);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      appController.customSnachBar(
-                                          'Please Enter all values.'));
-                                }
-                              },
-                              child: const Text('SAVE'),
-                            );
-                })
-              ],
-              4,
-              context);
-        },
-        child: const Icon(Icons.add),
+            ],
+          ),
+          LinksManager(),
+          FileScreen(),
+        ],
       ),
+      onWillPop: exitApp,
     );
   }
 }

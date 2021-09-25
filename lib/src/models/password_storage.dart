@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:hive/hive.dart';
 
 part 'password_storage.g.dart';
@@ -27,6 +29,12 @@ class PasswordStorage {
   @HiveField(7)
   String updatedAt;
 
+  @HiveField(8)
+  String cloud_id;
+
+  @HiveField(9)
+  bool uploaded;
+
   PasswordStorage({
     required this.id,
     required this.title,
@@ -36,5 +44,32 @@ class PasswordStorage {
     this.click = 0,
     required this.createAt,
     required this.updatedAt,
+    this.cloud_id = '',
+    this.uploaded = false,
   });
+
+  PasswordStorage.fromJSON(Map<String, dynamic> json)
+      : id = json['id'],
+        title = json['title'],
+        username = json['username'],
+        password = json['password'],
+        click = int.parse(json['click']),
+        cloud_id = json['_id'],
+        uploaded = true,
+        important = json['important'] == 'true' ? true : false,
+        createAt = json['createdAt'],
+        updatedAt = json['updatedAt'];
+
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "title": title,
+      "username": username,
+      "password": password,
+      "click": click,
+      "important": important,
+      "createdAt": createAt,
+      "updatedAt": updatedAt
+    };
+  }
 }

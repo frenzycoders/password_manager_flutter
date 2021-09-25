@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:password_manager/src/Controllers/settings_controller.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -13,16 +14,31 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   splashCounter() {
-    return Timer(const Duration(seconds: 2), () {
-      Get.offAndToNamed('/home');
+    return Timer(const Duration(microseconds: 100), () async {
+      if (settingsController.fingerLock.isTrue ||
+          settingsController.facelock.isTrue) {
+        bool isValid = await settingsController.requestBiometricAuth();
+        if (isValid) {
+          if (settingsController.pinlock.isTrue) {
+            Get.toNamed('/verification-pin');
+          } else {
+            Get.toNamed('/home');
+          }
+        }
+      } else if (settingsController.pinlock.isTrue) {
+        Get.toNamed('/verification-pin');
+      } else {
+        Get.toNamed('/home');
+      }
     });
   }
 
+  late SettingsController settingsController;
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-
+    settingsController = Get.find<SettingsController>();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     splashCounter();
   }

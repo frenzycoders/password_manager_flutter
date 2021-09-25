@@ -1,22 +1,22 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'password_storage.dart';
+part of 'updated_passwords.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class PasswordStorageAdapter extends TypeAdapter<PasswordStorage> {
+class UpdatedPasswordsAdapter extends TypeAdapter<UpdatedPasswords> {
   @override
-  final int typeId = 0;
+  final int typeId = 5;
 
   @override
-  PasswordStorage read(BinaryReader reader) {
+  UpdatedPasswords read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return PasswordStorage(
+    return UpdatedPasswords(
       id: fields[0] as String,
       title: fields[1] as String,
       username: fields[2] as String,
@@ -31,7 +31,7 @@ class PasswordStorageAdapter extends TypeAdapter<PasswordStorage> {
   }
 
   @override
-  void write(BinaryWriter writer, PasswordStorage obj) {
+  void write(BinaryWriter writer, UpdatedPasswords obj) {
     writer
       ..writeByte(10)
       ..writeByte(0)
@@ -62,7 +62,7 @@ class PasswordStorageAdapter extends TypeAdapter<PasswordStorage> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is PasswordStorageAdapter &&
+      other is UpdatedPasswordsAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
