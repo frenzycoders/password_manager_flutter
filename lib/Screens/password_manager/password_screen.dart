@@ -10,6 +10,7 @@ import 'package:password_manager/src/Controllers/password_controller.dart';
 import 'package:password_manager/src/Controllers/settings_controller.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:password_manager/src/HttpException.dart';
+import 'package:password_manager/src/models/password_storage.dart';
 
 class PasswordScreen extends StatefulWidget {
   Function openDrawer;
@@ -213,13 +214,21 @@ class _PasswordScreenState extends State<PasswordScreen>
                                                       height: 0, width: 0);
                                             }),
                                             IconButton(
-                                              onPressed: () {
+                                              onPressed: () async {
                                                 _usernameController.text =
                                                     appController.passwords
                                                         .value[index].username;
+                                                final encrypted =
+                                                    await cloudController
+                                                        .returnDecryptPwd(
+                                                            appController
+                                                                .passwords
+                                                                .value[index]
+                                                                .password);
                                                 _passwordController.text =
-                                                    appController.passwords
-                                                        .value[index].password;
+                                                    await cloudController
+                                                        .decryptPassword(
+                                                            encrypted);
                                                 _titleController.text =
                                                     appController.passwords
                                                         .value[index].title;
@@ -371,16 +380,25 @@ class _PasswordScreenState extends State<PasswordScreen>
                                                                       )
                                                                     : RaisedButton(
                                                                         onPressed:
-                                                                            () {
+                                                                            () async {
                                                                           if (_usernameController.text.isNotEmpty &&
                                                                               _passwordController.text.isNotEmpty &&
                                                                               _titleController.text.isNotEmpty) {
-                                                                            appController.editDataToStorage(
-                                                                              appController.passwords.value[index].id,
-                                                                              _titleController.text,
-                                                                              _usernameController.text,
-                                                                              _passwordController.text,
-                                                                            );
+                                                                            if (_passwordController.text.length >=
+                                                                                6) {
+                                                                              PasswordStorage passwordStorage = PasswordStorage(id: appController.passwords.value[index].id, title: _titleController.text, username: _usernameController.text, password: _passwordController.text, createAt: appController.passwords.value[index].createAt, updatedAt: appController.passwords.value[index].updatedAt, click: appController.passwords.value[index].click, cloud_id: appController.passwords.value[index].cloud_id, important: appController.passwords.value[index].important, uploaded: appController.passwords.value[index].uploaded);
+                                                                              await cloudController.updateRequest(
+                                                                                  passwordStorage: passwordStorage,
+                                                                                  message: (msg) {
+                                                                                    ScaffoldMessenger.of(context).showSnackBar(settingsController.customSnachBar(msg));
+                                                                                    _usernameController.text = '';
+                                                                                    _passwordController.text = '';
+                                                                                    _titleController.text = '';
+                                                                                    Navigator.of(context).pop();
+                                                                                  });
+                                                                            } else {
+                                                                              ScaffoldMessenger.of(context).showSnackBar(settingsController.customSnachBar('Password Length should be 6 or grater then 6 characters.'));
+                                                                            }
                                                                           } else {
                                                                             ScaffoldMessenger.of(context).showSnackBar(settingsController.customSnachBar('Please Enter all values.'));
                                                                           }
@@ -489,40 +507,42 @@ class _PasswordScreenState extends State<PasswordScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        settingsController.uploadCloud.isTrue
-                            ? FloatingActionButton(
-                                heroTag: '1',
-                                elevation: 4,
-                                mini: true,
-                                onPressed: () async {
-                                  if (await await InternetConnectionChecker()
-                                      .hasConnection) {
-                                    try {
-                                      await cloudController.fullRefresh();
-                                      await cloudController
-                                          .deleteAllPendingPasswords();
-                                    } on HttpException catch (e) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(settingsController
-                                              .customSnachBar(e.message));
-                                    } catch (e) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(settingsController
-                                              .customSnachBar(e.toString()));
+                        Obx(() {
+                          return settingsController.uploadCloud.isTrue
+                              ? FloatingActionButton(
+                                  heroTag: '1',
+                                  elevation: 4,
+                                  mini: true,
+                                  onPressed: () async {
+                                    if (await await InternetConnectionChecker()
+                                        .hasConnection) {
+                                      try {
+                                        await cloudController.fullRefresh();
+                                        await cloudController
+                                            .deleteAllPendingPasswords();
+                                      } on HttpException catch (e) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(settingsController
+                                                .customSnachBar(e.message));
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(settingsController
+                                                .customSnachBar(e.toString()));
+                                      }
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                          settingsController.customSnachBar(
+                                              'No Internet found Please Connect to internet.'));
                                     }
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        settingsController.customSnachBar(
-                                            'No Internet found Please Connect to internet.'));
-                                  }
-                                },
-                                child: Icon(Icons.refresh),
-                              )
-                            : Container(
-                                height: 0,
-                                width: 0,
-                                color: Colors.transparent,
-                              ),
+                                  },
+                                  child: Icon(Icons.refresh),
+                                )
+                              : Container(
+                                  height: 0,
+                                  width: 0,
+                                  color: Colors.transparent,
+                                );
+                        }),
                         FloatingActionButton(
                           heroTag: '0',
                           elevation: 4,
@@ -663,41 +683,52 @@ class _PasswordScreenState extends State<PasswordScreen>
                                                           .text.isNotEmpty &&
                                                       _titleController
                                                           .text.isNotEmpty) {
-                                                    try {
-                                                      await cloudController
-                                                          .storePassword(
-                                                              _titleController
-                                                                  .text,
-                                                              _usernameController
-                                                                  .text,
-                                                              _passwordController
-                                                                  .text);
-                                                      _usernameController.text =
-                                                          '';
-                                                      _passwordController.text =
-                                                          '';
-                                                      _titleController.text =
-                                                          '';
+                                                    if (_passwordController
+                                                            .text.length >=
+                                                        6) {
+                                                      try {
+                                                        await cloudController
+                                                            .storePassword(
+                                                                _titleController
+                                                                    .text,
+                                                                _usernameController
+                                                                    .text,
+                                                                _passwordController
+                                                                    .text);
+                                                        _usernameController
+                                                            .text = '';
+                                                        _passwordController
+                                                            .text = '';
+                                                        _titleController.text =
+                                                            '';
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                                settingsController
+                                                                    .customSnachBar(
+                                                                        'Password Created.'));
+                                                      } on HttpException catch (e) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                                settingsController
+                                                                    .customSnachBar(
+                                                                        e.message));
+                                                      } catch (e) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                                settingsController
+                                                                    .customSnachBar(
+                                                                        'Network error.'));
+                                                      }
+                                                    } else {
                                                       ScaffoldMessenger.of(
                                                               context)
                                                           .showSnackBar(
                                                               settingsController
                                                                   .customSnachBar(
-                                                                      'Password Created.'));
-                                                    } on HttpException catch (e) {
-                                                      ScaffoldMessenger.of(
-                                                              context)
-                                                          .showSnackBar(
-                                                              settingsController
-                                                                  .customSnachBar(
-                                                                      e.message));
-                                                    } catch (e) {
-                                                      ScaffoldMessenger.of(
-                                                              context)
-                                                          .showSnackBar(
-                                                              settingsController
-                                                                  .customSnachBar(
-                                                                      'Network error.'));
+                                                                      'Password Length should be 6 or grater then 6 characters.'));
                                                     }
                                                   } else {
                                                     ScaffoldMessenger.of(

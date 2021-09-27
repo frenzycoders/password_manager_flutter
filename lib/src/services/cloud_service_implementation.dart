@@ -153,4 +153,72 @@ class CloudServiceImplementation implements CloudService {
       throw e;
     }
   }
+
+  @override
+  Future deleteMultiplePasswords(
+      {required key, required List<String> ids}) async {
+    try {
+      final response =
+          await _httpService.deleteRequest(url: 'delete-multilple', headers: {
+        'x-key': key
+      }, body: {
+        "ids": jsonEncode(ids),
+      });
+      if (response.statusCode == 404) {
+        throw HttpException('404');
+      } else if (response.statusCode == 500) {
+        throw HttpException(json.decode(response.body)['message']);
+      } else if (response.statusCode == 200) {
+        return;
+      } else {
+        throw HttpException(json.decode(response.body)['message']);
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  @override
+  Future updateSinglePassword(
+      {required key, required PasswordStorage passwordStorage}) async {
+    try {
+      final date = DateTime.now().toString();
+
+      final response = await _httpService
+          .patchRequest('update-password/' + passwordStorage.cloud_id, {
+        'x-key': key
+      }, {
+        "title": passwordStorage.title,
+        "username": passwordStorage.username,
+        "password": passwordStorage.password,
+        "click": passwordStorage.click.toString(),
+        "important": passwordStorage.important.toString(),
+        "createdAt": passwordStorage.createAt,
+        "updatedAt": date,
+      });
+      if (response.statusCode == 404) {
+        throw HttpException(json.decode(response.body)['message']);
+      } else if (response.statusCode == 500) {
+        throw HttpException(json.decode(response.body)['message']);
+      }
+      return;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  @override
+  Future updateManyPasswords({required key, required String data}) async {
+    try {
+      final response = await _httpService
+          .patchRequest('update-multiple', {'x-key': key}, {"data": data});
+      if (response.statusCode != 200) {
+        throw HttpException(json.decode(response.body)['message']);
+      } else {
+        return;
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
 }

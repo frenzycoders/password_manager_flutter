@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:password_manager/Screens/Cloud/register_screen.dart';
 import 'package:password_manager/Screens/settings/PinCreate.dart';
+import 'package:password_manager/Screens/settings/key_screen.dart';
 import 'package:password_manager/src/Config.dart';
 import 'package:password_manager/src/Controllers/cloud_controller.dart';
 import 'package:password_manager/src/Controllers/settings_controller.dart';
@@ -198,6 +199,9 @@ class SettingsScreen extends StatelessWidget {
                 child: ListTile(
                   enabled:
                       cloudController.profile.value.eKey != '' ? true : false,
+                  onTap: () {
+                    appController.rightSlidePage(context, KeyScreen());
+                  },
                   leading: Icon(Icons.lock),
                   title: Text('Your Key'),
                   subtitle: Text('Your Password is encrypted with eKey "' +

@@ -41,6 +41,10 @@ class SettingsController extends GetxController {
     bioMetricValues();
   }
 
+  logoutSession() async {
+    uploadCloud.value = false;
+  }
+
   openCloudBox() async {
     utilsBox = await Hive.openBox('utils');
     final value = utilsBox.get('cloud');

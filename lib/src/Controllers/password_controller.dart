@@ -16,6 +16,7 @@ class PasswordController extends GetxController {
   RxList passwords = [].obs;
   RxList pendingUpdatePasswords = [].obs;
   RxList pendingDeletePasswords = [].obs;
+
   PasswordController() {
     passwordBox = Hive.box<PasswordStorage>(storage);
     updatedPasswordBox = Hive.box<UpdatedPasswords>(updated);
@@ -82,6 +83,12 @@ class PasswordController extends GetxController {
     isAdded.value = true;
     isLoading.value = false;
     fetchPasswords();
+  }
+
+  updatePasswordWithFullData(PasswordStorage passwordStorage) async {
+    passwordStorage.updatedAt = DateTime.now().toString();
+    passwordBox.put(passwordStorage.id, passwordStorage);
+    await fetchPasswords();
   }
 
   uploadedToCloudEdit(id, cloud_id) async {

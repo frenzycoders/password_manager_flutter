@@ -1,4 +1,6 @@
 // ignore_for_file: use_rethrow_when_possible
+import 'dart:convert';
+
 import 'package:clipboard/clipboard.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:password_manager/src/Controllers/settings_controller.dart';
@@ -35,6 +37,11 @@ class CloudController extends GetxController {
     if (userDetails != null) {
       profile.value = userDetails;
     }
+  }
+
+  Future ChangeKey(String key) async {
+    profile.value.eKey = key;
+    user.put('profile', profile.value);
   }
 
   Future createSpace({required email}) async {
@@ -106,6 +113,10 @@ class CloudController extends GetxController {
     }
   }
 
+  copyString(data, Function message) async {
+    FlutterClipboard.copy(data).then((value) => message());
+  }
+
   copyPasswordToClipBoard({
     required Function message,
     required PasswordStorage passwordStorage,
@@ -166,6 +177,11 @@ class CloudController extends GetxController {
     return decrypted;
   }
 
+  Future<Encrypted> returnDecryptPwd(enc_pwd) async {
+    Encrypted pwd = Encrypted.fromBase64(enc_pwd);
+    return pwd;
+  }
+
   Future<String> _keyGenerator() async {
     Key key = Key.fromLength(32);
     return key.base64;
@@ -186,8 +202,22 @@ class CloudController extends GetxController {
   Future fullRefresh() async {
     try {
       isLoading.value = true;
-      await updateAllPendingPasswords();
-
+      try {
+        await deleteAllPendingPasswords();
+        await _passwordController.clearPendingDeleteBox();
+      } on HttpException catch (e) {
+        throw HttpException(e.message);
+      } catch (e) {
+        throw e;
+      }
+      try {
+        await updateAllPendingPasswords();
+        await _passwordController.clearUpdatedPasswordBox();
+      } on HttpException catch (e) {
+        throw HttpException(e.message);
+      } catch (e) {
+        throw e;
+      }
       List<PasswordStorage> passwords =
           await _cloudService.fetchAllPasswords(key: profile.value.key);
       await _passwordController.cleanFullPasswordStorage();
@@ -251,6 +281,68 @@ class CloudController extends GetxController {
     }
   }
 
+  updateRequest(
+      {required PasswordStorage passwordStorage,
+      required Function message}) async {
+    Encrypted enc_pws = await encryptPassword(passwordStorage.password);
+    if (_settingsController.uploadCloud.isTrue) {
+      passwordStorage.password = enc_pws.base64;
+      if (await InternetConnectionChecker().hasConnection) {
+        try {
+          await updatePasswordToServer(passwordStorage: passwordStorage);
+          await _passwordController.editDataToStorage(
+            passwordStorage.id,
+            passwordStorage.id,
+            passwordStorage.username,
+            passwordStorage.password,
+          );
+          message('Password Updated .');
+        } on HttpException catch (e) {
+          message(e.message);
+        } catch (e) {
+          message(e.toString());
+        }
+      } else {
+        await _passwordController
+            .addPasswordToUpdatedPasswordBox(UpdatedPasswords(
+          id: passwordStorage.id,
+          title: passwordStorage.title,
+          username: passwordStorage.username,
+          password: passwordStorage.password,
+          important: passwordStorage.important,
+          click: passwordStorage.click,
+          createAt: passwordStorage.createAt,
+          updatedAt: passwordStorage.updatedAt,
+          cloud_id: passwordStorage.cloud_id,
+          uploaded: passwordStorage.uploaded,
+        ));
+        await _passwordController.updatePasswordWithFullData(passwordStorage);
+        message(
+            'Password Updated in local database connect to internet and refresh it to sync your passwords');
+      }
+    } else {
+      await _passwordController.editDataToStorage(
+        passwordStorage.id,
+        passwordStorage.title,
+        passwordStorage.username,
+        enc_pws.base64,
+      );
+      message('Password updated.');
+    }
+  }
+
+  updatePasswordToServer({required PasswordStorage passwordStorage}) async {
+    try {
+      await _cloudService.updateSinglePassword(
+          key: profile.value.key, passwordStorage: passwordStorage);
+      return;
+    } on HttpException catch (e) {
+      throw HttpException(e.message);
+    } catch (e) {
+      throw e;
+    }
+  }
+
   deletePasswordFromCloud({required id}) async {
     try {
       await _cloudService.deletePassword(key: profile.value.key, id: id);
@@ -262,25 +354,61 @@ class CloudController extends GetxController {
   }
 
   deleteAllPendingPasswords() async {
+    await _passwordController.fetchPendingDeletePasswords();
     if (_passwordController.pendingDeletePasswords.value.length > 0) {
-      _passwordController.deletedPasswordBox.values
-          .toList()
-          .forEach((element) async {
-        await deletePasswordFromCloud(id: element.id);
+      await _passwordController.fetchPendingDeletePasswords();
+      List<String> ids = [];
+      _passwordController.pendingDeletePasswords.value.forEach((element) {
+        ids.add(element.id.toString());
       });
-      await _passwordController.fetchPasswords();
+      try {
+        await _cloudService.deleteMultiplePasswords(
+            key: profile.value.key, ids: ids);
+      } on HttpException catch (e) {
+        throw HttpException(e.message);
+      } catch (e) {
+        throw e;
+      }
     } else {
       return;
     }
   }
 
   updateAllPendingPasswords() async {
+    await _passwordController.fetchPendingUpdatedPassword();
     if (_passwordController.pendingUpdatePasswords.value.length > 0) {
-      // _passwordController.updatedPasswordBox.values
-      //     .toList()
-      //     .forEach((element) async {});
+      List updatePassword = [];
+      _passwordController.pendingUpdatePasswords.value.forEach((element) {
+        updatePassword.add({
+          "_id": element.cloud_id,
+          "id": element.id,
+          "title": element.title,
+          "username": element.username,
+          "password": element.password,
+          "createdAt": element.createAt,
+          "updatedAt": element.updatedAt,
+          "click": element.click.toString(),
+          "important": element.important.toString(),
+        });
+      });
+      try {
+        await _cloudService.updateManyPasswords(
+            key: profile.value.key, data: jsonEncode(updatePassword));
+        print('Hey');
+      } on HttpException catch (e) {
+        throw HttpException(e.message);
+      } catch (e) {
+        throw e;
+      }
     } else {
       return;
     }
+  }
+
+  logoutSession() async {
+    await user.delete('profile');
+    profile.value = UserDetails(id: '', email: '', key: '');
+    await _settingsController.logoutSession();
+    await _settingsController.enableDisableUploadToCloud();
   }
 }

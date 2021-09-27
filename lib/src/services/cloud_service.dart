@@ -9,4 +9,9 @@ abstract class CloudService {
   Future<List<PasswordStorage>> fetchAllPasswords({required key});
   Future updateClick({required key, required PasswordStorage passwordStorage});
   Future deletePassword({required key, required id});
+  Future deleteMultiplePasswords({required key, required List<String> ids});
+  Future updateSinglePassword(
+      {required key, required PasswordStorage passwordStorage});
+
+  Future updateManyPasswords({required key, required String data});
 }
